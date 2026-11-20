@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="TN5250 Gateway — a Java gateway for TN5250/AS400 terminal sessions.">
+  <title>TN5250 Gateway</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="nav-wrap">
+    <nav class="nav container" aria-label="Main navigation">
+      <a class="brand" href="#top" aria-label="TN5250 Gateway home">
+        <span class="brand-mark">TN</span>
+        <span>TN5250 Gateway</span>
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#start">Get started</a>
+      </div>
+      <a class="button button-small button-dark" href="https://github.com/io-org/tn5250_gateway" rel="noreferrer">View on GitHub <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="hero-grid container">
+        <div class="hero-copy">
+          <p class="eyebrow"><span></span> Java gateway for IBM i</p>
+          <h1>Modern access to<br><em>TN5250 sessions.</em></h1>
+          <p class="hero-lead">A lightweight gateway that connects modern verifiers and terminal clients to TN5250 AS/400 systems—with TLS support and session management built in.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#start">Get started <span aria-hidden="true">→</span></a>
+            <a class="button button-secondary" href="https://github.com/io-org/tn5250_gateway" rel="noreferrer"><span class="github-mark" aria-hidden="true">⌘</span> GitHub repository</a>
+          </div>
+          <div class="status-row">
+            <span><i class="status-dot"></i> Java 17</span>
+            <span>Apache Maven</span>
+            <span>MIT License</span>
+          </div>
+        </div>
+
+        <div class="terminal-card" aria-label="TN5250 Gateway terminal preview">
+          <div class="terminal-bar">
+            <div class="window-dots"><i></i><i></i><i></i></div>
+            <span>gateway-session</span>
+            <span class="terminal-status">CONNECTED</span>
+          </div>
+          <div class="terminal-screen">
+            <pre><span class="dim">Sign On</span>
+
+ System . . . . . :  <span class="cyan">AS400-DEMO</span>
+ Subsystem . . . :  <span class="cyan">QINTER</span>
+
+ User  . . . . . :  <span class="caret">████████</span>
+ Password . . . .:
+
+<span class="green">Press Enter to sign on</span>
+ F3=Exit       F12=Cancel</pre>
+          </div>
+          <div class="terminal-footer">
+            <span><i class="status-dot green-dot"></i> TLS established</span>
+            <span>2323 / TN5250</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features-section" id="features">
+      <div class="container">
+        <div class="section-heading">
+          <p class="eyebrow"><span></span> Built for integration</p>
+          <h2>Everything needed for a<br>secure gateway.</h2>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card">
+            <div class="feature-number">01</div>
+            <h3>TN5250 proxy</h3>
+            <p>Accept terminal connections and proxy them to IBM i or AS/400 TN5250 endpoints.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-number">02</div>
+            <h3>TLS support</h3>
+            <p>Enable secure connections for the gateway and upstream TN5250 sessions.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-number">03</div>
+            <h3>Session lifecycle</h3>
+            <p>Track connection and sign-in state with isolated session inboxes and automatic cleanup.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-number">04</div>
+            <h3>JSON verifier I/O</h3>
+            <p>Exchange setup, connection, and verification messages with external services over stdin and stdout.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="architecture-section" id="architecture">
+      <div class="container architecture-grid">
+        <div>
+          <p class="eyebrow"><span></span> Architecture</p>
+          <h2>One gateway.<br>Multiple sessions.</h2>
+        </div>
+        <div class="flow-card">
+          <div class="flow-node"><span>Terminal</span><small>TN5250 client</small></div>
+          <div class="flow-line"><i></i></div>
+          <div class="flow-node featured"><span>Gateway</span><small>Java process</small></div>
+          <div class="flow-line"><i></i></div>
+          <div class="flow-node"><span>Verifier</span><small>JSON I/O</small></div>
+          <div class="flow-line"><i></i></div>
+          <div class="flow-node"><span>AS/400</span><small>TN5250 host</small></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="start-section" id="start">
+      <div class="container start-grid">
+        <div>
+          <p class="eyebrow"><span></span> Get started</p>
+          <h2>Build it locally.</h2>
+        </div>
+        <div class="code-card">
+          <div class="code-top"><span>Terminal</span><button id="copy-command" type="button">Copy</button></div>
+          <pre><code><span class="prompt">$</span> git clone https://github.com/io-org/tn5250_gateway.git
+<span class="prompt">$</span> cd tn5250_gateway
+<span class="prompt">$</span> mvn package
+<span class="prompt">$</span> java -jar target/tn5250_gateway-1.0-SNAPSHOT.jar</code></pre>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-grid">
+      <a class="brand" href="#top"><span class="brand-mark">TN</span><span>TN5250 Gateway</span></a>
+      <p>Released under the <a href="https://github.com/io-org/tn5250_gateway/blob/main/LICENSE">MIT License</a>.</p>
+      <a href="https://github.com/io-org/tn5250_gateway" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a>
+    </div>
+  </footer>
+  <script src="script.js"></script>
+</body>
+</html>
