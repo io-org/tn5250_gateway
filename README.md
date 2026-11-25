@@ -25,27 +25,6 @@ A generic, lightweight gateway for IBM i that enables TN5250 connections with cu
 
 Drop the gateway between existing TN5250 clients and your IBM i host to enforce external verification logic without modifying legacy AS/400 configuration.
 
-### Legacy Direct
-```text
-[ TERMINAL (TN5250 client) ] ───────────────────────► [ AS/400 (TN5250 host) ]
-```
-
-### Protected Gateway
-```text
-                         ┌───────────────────────────────────────────┐
-                         │ INTEGRATION PROGRAM (IAM, IdP, MFA, etc.) │
-                         └─────────────────────▲─────────────────────┘
-                                               │ JSON: stdin / stdout
-                                               ▼
-[ TERMINAL (TN5250) ] ──────────► [ GATEWAY (TN5250 Proxy) ] ──────────► [ AS/400 (TN5250) ]
-                                               │
-                                               │ logs / screenshots: tail / watch
-                                               ▼
-                         ┌───────────────────────────────────────────┐
-                         │        MONITORING (SIEM, SOAR, etc.)      │
-                         └───────────────────────────────────────────┘
-```
-
 ---
 
 ## Quickstart
