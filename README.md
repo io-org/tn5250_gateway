@@ -52,6 +52,8 @@ java -jar tn5250_gateway-1.0-SNAPSHOT.jar
 ```
 
 #### Step 1: Initial Setup
+![Setup Screen](docs/pub400.com_0.png)
+
 **REQUEST:**
 ```json
 {
