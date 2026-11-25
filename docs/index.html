@@ -1,17 +1,680 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="TN5250 Gateway — a Java gateway for TN5250/AS400 terminal sessions.">
-  <title>TN5250 Gateway</title>
-  <link rel="stylesheet" href="styles.css">
+  <meta name="description" content="TN5250 Gateway — a secure gateway for TN5250/AS400 terminal sessions.">
+  <title>TN5250 Gateway — Modern Access for IBM i</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --surface: #111827;
+      --surface-elevated: #161f33;
+      --border: rgba(255, 255, 255, 0.08);
+      --border-highlight: rgba(56, 189, 248, 0.35);
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.16);
+      --green: #10b981;
+      --amber: #f59e0b;
+      --red: #ef4444;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      overflow-x: hidden;
+      background-image:
+        radial-gradient(circle at 15% 15%, rgba(56, 189, 248, 0.09), transparent 35%),
+        radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.06), transparent 35%);
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 1140px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* Navigation */
+    .nav-wrap {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      backdrop-filter: blur(14px);
+      background: rgba(9, 13, 22, 0.8);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 72px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 32px;
+      font-size: 0.925rem;
+      color: var(--text-muted);
+    }
+
+    .nav-links a:hover {
+      color: var(--text);
+    }
+
+    /* Buttons */
+    .button {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 22px;
+      border-radius: 10px;
+      font-weight: 500;
+      font-size: 0.95rem;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .button-small {
+      padding: 8px 16px;
+      font-size: 0.875rem;
+    }
+
+    .button-primary {
+      background: var(--accent);
+      color: #090d16;
+      font-weight: 600;
+      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.25);
+    }
+
+    .button-primary:hover {
+      background: #7dd3fc;
+      transform: translateY(-1px);
+    }
+
+    .button-secondary,
+    .button-dark {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .button-secondary:hover,
+    .button-dark:hover {
+      border-color: rgba(255, 255, 255, 0.22);
+      background: #1e293b;
+    }
+
+    /* Eyebrow */
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      margin-bottom: 14px;
+    }
+
+    .eyebrow span {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    /* Hero */
+    .hero {
+      padding: 88px 0 96px;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 4.5vw, 3.65rem);
+      font-weight: 700;
+      line-height: 1.12;
+      letter-spacing: -0.03em;
+      margin-bottom: 20px;
+    }
+
+    .hero-lead {
+      font-size: 1.125rem;
+      color: var(--text-muted);
+      margin-bottom: 32px;
+    }
+
+    .hero-lead ul {
+      padding-left: 0;
+      list-style-position: inside;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 36px;
+    }
+
+    .status-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .status-row span {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    /* Terminal Preview Card */
+    .terminal-card {
+      background: #060911;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.03);
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      background: #0f1623;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .window-dots {
+      display: flex;
+      gap: 7px;
+    }
+
+    .window-dots i {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: block;
+    }
+
+    .window-dots i:nth-child(1) {
+      background: var(--red);
+    }
+
+    .window-dots i:nth-child(2) {
+      background: var(--amber);
+    }
+
+    .window-dots i:nth-child(3) {
+      background: var(--green);
+    }
+
+    .terminal-status {
+      color: var(--green);
+      font-weight: 500;
+    }
+
+    .terminal-screen {
+      position: relative;
+      background: #020408;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.45;
+      color: #4ade80;
+      min-height: 270px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .pub400-preview {
+      width: 100%;
+      border-radius: 6px;
+      display: block;
+    }
+
+    .ascii-fallback {
+      white-space: pre;
+      overflow-x: auto;
+      color: #4ade80;
+      text-shadow: 0 0 8px rgba(74, 222, 128, 0.25);
+    }
+
+    .terminal-footer {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 18px;
+      background: #0f1623;
+      border-top: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .green-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--green);
+      margin-right: 6px;
+    }
+
+    /* Sections */
+    section {
+      padding: 88px 0;
+      border-top: 1px solid var(--border);
+    }
+
+    .section-heading {
+      margin-bottom: 48px;
+    }
+
+    .section-lead {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 600px;
+      margin-top: 16px;
+    }
+
+    h2 {
+      font-size: clamp(1.85rem, 3vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      line-height: 1.2;
+    }
+
+    /* Feature Grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--border-highlight);
+    }
+
+    .feature-number {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: var(--accent);
+      margin-bottom: 16px;
+    }
+
+    .feature-card h3 {
+      font-size: 1.15rem;
+      margin-bottom: 10px;
+    }
+
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.94rem;
+    }
+
+    /* Architecture Section */
+    .architecture-grid {
+      display: grid;
+      grid-template-columns: 0.85fr 1.15fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    .architecture-diagrams {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .flow-card {
+      position: relative;
+      background: var(--surface);
+      border: 3px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 28px 28px;
+    }
+
+    .flow-label {
+      position: absolute;
+      top: 14px;
+      left: 20px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    .flow-label.accent {
+      color: var(--accent);
+    }
+
+    /* Horizontal row that aligns TERMINAL, GATEWAY, and AS/400 on the same baseline */
+    .flow-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    .gateway-flow-card {
+      padding-top: 156px;
+      padding-bottom: 132px;
+      overflow: visible;
+    }
+
+    .flow-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px 18px;
+      min-width: 138px;
+      min-height: 68px;
+    }
+
+    .flow-node span {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    .flow-node small {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .flow-node.featured {
+      border-color: var(--border-highlight);
+      background: linear-gradient(180deg, rgba(56, 189, 248, 0.14), rgba(22, 31, 51, 0.95));
+      box-shadow: 0 0 28px var(--accent-glow);
+    }
+
+    .flow-node.featured span {
+      color: var(--accent);
+    }
+
+    .flow-line {
+      flex: 1;
+      min-width: 24px;
+      max-width: 64px;
+      height: 2px;
+      background: linear-gradient(90deg, rgba(148, 163, 184, 0.25), rgba(56, 189, 248, 0.55), rgba(148, 163, 184, 0.25));
+      position: relative;
+    }
+
+    .flow-line::after {
+      content: "";
+      position: absolute;
+      right: -1px;
+      top: 50%;
+      transform: translateY(-50%) rotate(45deg);
+      width: 7px;
+      height: 7px;
+      border-top: 2px solid var(--accent);
+      border-right: 2px solid var(--accent);
+    }
+
+    /* Gateway anchor & floating Verifier node above */
+    .gateway-node {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .verifier-node {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: max-content;
+    }
+
+    .json-link {
+      position: relative;
+      width: 2px;
+      height: 34px;
+      background: rgba(56, 189, 248, 0.45);
+    }
+
+    .json-tag {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--accent);
+      white-space: nowrap;
+      background: var(--surface);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+
+    /* Quickstart Section: Side-by-side Left & Right Code Columns */
+    .start-steps {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 28px;
+      align-items: stretch;
+    }
+
+    .step-block {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .step-block h3 {
+      font-size: 1.05rem;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+
+    .code-card {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #060911;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .code-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: #0f1623;
+      border-bottom: 1px solid var(--border);
+      font-family: var(--font-mono);
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+
+    .code-top button {
+      background: var(--surface-elevated);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 0.74rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .code-top button:hover {
+      border-color: var(--border-highlight);
+      color: var(--accent);
+    }
+
+    .code-card pre {
+      flex: 1;
+      padding: 18px 20px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.84rem;
+      line-height: 1.65;
+      color: #e2e8f0;
+    }
+
+    .prompt {
+      color: var(--accent);
+      user-select: none;
+      margin-right: 6px;
+    }
+
+    /* Footer */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 36px 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .footer-grid {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    footer a:hover {
+      color: var(--text);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+
+      .architecture-grid,
+      .start-steps {
+        grid-template-columns: 1fr;
+      }
+
+      .nav-links {
+        display: none;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .flow-row {
+        flex-wrap: wrap;
+      }
+
+      .flow-node {
+        min-width: 105px;
+        padding: 10px 12px;
+      }
+
+      .flow-line {
+        min-width: 16px;
+      }
+    }
+
+    .audit-node {
+      position: absolute;
+      top: calc(100% + 0px);
+      left: 50%;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: max-content;
+      transform: translateX(-50%);
+    }
+
+    .audit-link {
+      width: 2px;
+      height: 24px;
+      background: rgba(148, 163, 184, 0.35);
+    }
+
+    img {
+      width: 640px;
+    }
+    .request-response {
+      color: lightblue;
+    }
+  </style>
 </head>
-<body>
+
+<body id="top">
   <header class="nav-wrap">
     <nav class="nav container" aria-label="Main navigation">
       <a class="brand" href="#top" aria-label="TN5250 Gateway home">
-        <span class="brand-mark">TN</span>
         <span>TN5250 Gateway</span>
       </a>
       <div class="nav-links">
@@ -19,49 +682,40 @@
         <a href="#architecture">Architecture</a>
         <a href="#start">Get started</a>
       </div>
-      <a class="button button-small button-dark" href="https://github.com/io-org/tn5250_gateway" rel="noreferrer">View on GitHub <span aria-hidden="true">↗</span></a>
+      <a class="button button-small button-dark" href="https://github.com/io-org/tn5250_gateway" rel="noreferrer">View
+        on GitHub <span aria-hidden="true">↗</span></a>
     </nav>
   </header>
 
-  <main id="top">
+  <main>
     <section class="hero">
-      <div class="hero-grid container">
+      <div class="container">
         <div class="hero-copy">
-          <p class="eyebrow"><span></span> Java gateway for IBM i</p>
-          <h1>Modern access to<br><em>TN5250 sessions.</em></h1>
-          <p class="hero-lead">A lightweight gateway that connects modern verifiers and terminal clients to TN5250 AS/400 systems—with TLS support and session management built in.</p>
+          <p class="eyebrow"><span></span> Generic gateway for IBM i</p>
+          <h1>GENERIC<br>TN5250<br>GATEWAY</h1>
+          <strong>• MODERN AUTHENTICATION • REAL-TIME MONITORING • AUDITING AND COMPLIANCE •</strong>
+          <div class="hero-lead">
+            <br><br>
+            A generic, lightweight gateway that enables TN5250 connections with custom authentication, session
+            management, SIEM and audit integrations without modifying your native AS/400 configuration.<br>
+            <br>
+              <ul>
+                <li><strong>Flexible Authentication: </strong>Enforce custom conditional access workflows, MFA, OIDC and
+                  IdP (Okta, Duo, PingID, Entra ID, Keycloak, and more).</li>
+                <li><strong>Real-Time Monitoring: </strong>Stream authentication and session events directly to your
+                  SIEM.</li>
+                <li><strong>Auditing and Compliance: </strong>Record session screenshots directly to your own storage to
+                  meet strict regulatory standards.</li>
+              </ul>
+          </div>
+          <br><br>
           <div class="hero-actions">
             <a class="button button-primary" href="#start">Get started <span aria-hidden="true">→</span></a>
-            <a class="button button-secondary" href="https://github.com/io-org/tn5250_gateway" rel="noreferrer"><span class="github-mark" aria-hidden="true">⌘</span> GitHub repository</a>
+            <a class="button button-secondary" href="https://github.com/io-org/tn5250_gateway" rel="noreferrer"><span
+                class="github-mark" aria-hidden="true">⌘</span> GitHub repository</a>
           </div>
           <div class="status-row">
-            <span><i class="status-dot"></i> Java 17</span>
-            <span>Apache Maven</span>
-            <span>MIT License</span>
-          </div>
-        </div>
-
-        <div class="terminal-card" aria-label="TN5250 Gateway terminal preview">
-          <div class="terminal-bar">
-            <div class="window-dots"><i></i><i></i><i></i></div>
-            <span>gateway-session</span>
-            <span class="terminal-status">CONNECTED</span>
-          </div>
-          <div class="terminal-screen">
-            <pre><span class="dim">Sign On</span>
-
- System . . . . . :  <span class="cyan">AS400-DEMO</span>
- Subsystem . . . :  <span class="cyan">QINTER</span>
-
- User  . . . . . :  <span class="caret">████████</span>
- Password . . . .:
-
-<span class="green">Press Enter to sign on</span>
- F3=Exit       F12=Cancel</pre>
-          </div>
-          <div class="terminal-footer">
-            <span><i class="status-dot green-dot"></i> TLS established</span>
-            <span>2323 / TN5250</span>
+            <span><i class="status-dot"></i> MIT License</span>
           </div>
         </div>
       </div>
@@ -71,28 +725,29 @@
       <div class="container">
         <div class="section-heading">
           <p class="eyebrow"><span></span> Built for integration</p>
-          <h2>Everything needed for a<br>secure gateway.</h2>
+          <h2>Everything needed for<br>protected TN5250 sessions.</h2>
         </div>
         <div class="feature-grid">
           <article class="feature-card">
             <div class="feature-number">01</div>
             <h3>TN5250 proxy</h3>
-            <p>Accept terminal connections and proxy them to IBM i or AS/400 TN5250 endpoints.</p>
+            <p>Accept TN5250 connections and proxy them seamlessly to IBM i.</p>
           </article>
           <article class="feature-card">
             <div class="feature-number">02</div>
             <h3>TLS support</h3>
-            <p>Enable secure connections for the gateway and upstream TN5250 sessions.</p>
+            <p>Enable encrypted connections for both the client-facing gateway and upstream TN5250 sessions.</p>
+          </article>
+          <article class="feature-card">
+            <div class="feature-number">04</div>
+            <h3>Plain JSON I/O</h3>
+            <p>Exchange messages over stdin and stdout.
+               Test gateway without integration programm, and test integration programm without gateway.</p>
           </article>
           <article class="feature-card">
             <div class="feature-number">03</div>
             <h3>Session lifecycle</h3>
-            <p>Track connection and sign-in state with isolated session inboxes and automatic cleanup.</p>
-          </article>
-          <article class="feature-card">
-            <div class="feature-number">04</div>
-            <h3>JSON verifier I/O</h3>
-            <p>Exchange setup, connection, and verification messages with external services over stdin and stdout.</p>
+            <p>Track connection, sign-in state and captured screens with your favorite third party tools.</p>
           </article>
         </div>
       </div>
@@ -102,44 +757,216 @@
       <div class="container architecture-grid">
         <div>
           <p class="eyebrow"><span></span> Architecture</p>
-          <h2>One gateway.<br>Multiple sessions.</h2>
+          <h2>Simple architecture.<br>Strong protection.</h2>
+          <p class="section-lead">Drop the gateway between existing TN5250 clients and your IBM i host to enforce
+            external verification logic without modifying legacy AS/400 configuration.</p>
         </div>
-        <div class="flow-card">
-          <div class="flow-node"><span>Terminal</span><small>TN5250 client</small></div>
-          <div class="flow-line"><i></i></div>
-          <div class="flow-node featured"><span>Gateway</span><small>Java process</small></div>
-          <div class="flow-line"><i></i></div>
-          <div class="flow-node"><span>Verifier</span><small>JSON I/O</small></div>
-          <div class="flow-line"><i></i></div>
-          <div class="flow-node"><span>AS/400</span><small>TN5250 host</small></div>
+
+        <div class="architecture-diagrams">
+          <div class="flow-card">
+            <span class="flow-label">Legacy Direct</span>
+            <div class="flow-row">
+              <div class="flow-node">
+                <span>TERMINAL</span>
+                <small>TN5250 client</small>
+              </div>
+              <div class="flow-line"></div>
+              <div class="flow-node">
+                <span>AS/400</span>
+                <small>TN5250 host</small>
+              </div>
+            </div>
+          </div>
+
+
+          <div class="flow-card gateway-flow-card">
+            <span class="flow-label accent">Protected Gateway</span>
+            <div class="flow-row">
+              <div class="flow-node">
+                <span>TERMINAL</span>
+                <small>TN5250 client</small>
+              </div>
+              <div class="flow-line"></div>
+              <div class="gateway-node" style="position: relative;">
+                <div class="verifier-node">
+                  <div class="flow-node">
+                    <span>INTEGRATION<br>PROGRAMM</span>
+                    <small>IAM, IdP, MFA, etc.</small>
+                  </div>
+                  <div class="json-link" aria-label="JSON connection">
+                    <span class="json-tag">JSON: stdin / stdout</span>
+                  </div>
+                </div>
+                <div class="flow-node featured">
+                  <span>GATEWAY</span>
+                  <small>TN5250 Proxy</small>
+                </div>
+                <div class="audit-node">
+                  <div class="json-link" aria-label="JSON connection">
+                    <span class="json-tag">logs / screenshots: tail / watch</span>
+                  </div>
+                  <div class="flow-node">
+                    <span>MONITORING</span>
+                    <small>SIEM, SOAR, etc.</small>
+                  </div>
+                </div>
+              </div>
+              <div class="flow-line"></div>
+              <div class="flow-node">
+                <span>AS/400</span>
+                <small>TN5250 host</small>
+              </div>
+            </div>
+          </div>
+
+
         </div>
       </div>
     </section>
 
     <section class="start-section" id="start">
-      <div class="container start-grid">
-        <div>
-          <p class="eyebrow"><span></span> Get started</p>
-          <h2>Build it locally.</h2>
+      <div class="container">
+        <div class="section-heading">
+          <p class="eyebrow"><span></span> Quickstart</p>
+          <h2>Download or build from sources.<br>Run locally.</h2>
         </div>
-        <div class="code-card">
-          <div class="code-top"><span>Terminal</span><button id="copy-command" type="button">Copy</button></div>
-          <pre><code><span class="prompt">$</span> git clone https://github.com/io-org/tn5250_gateway.git
+
+        <div class="start-steps">
+          <div class="step-block">
+            <h3>Download the latest version</h3>
+            <div class="code-card">
+              <div class="code-top"><span>shell</span><button data-copy type="button">Copy</button></div>
+              <pre><code>https://github.com/io-org/tn5250_gateway.git
+            </div>
+          </div>
+
+          <div class="step-block">
+            <h3>…or build from sources</h3>
+            <div class="code-card">
+              <div class="code-top"><span>Link</span><button data-copy type="button">Copy</button></div>
+              <pre><code><span class="prompt">$</span> git clone https://github.com/io-org/tn5250_gateway.git
 <span class="prompt">$</span> cd tn5250_gateway
-<span class="prompt">$</span> mvn package
-<span class="prompt">$</span> java -jar target/tn5250_gateway-1.0-SNAPSHOT.jar</code></pre>
+<span class="prompt">$</span> mvn package</code></pre>
+            </div>
+          </div>
         </div>
+        
+
+        <br>
+        <div class="step-block">
+          <h3>Start the gateway without the integration program (Manual control)</h3>
+          <div class="code-card">
+            <div class="code-top"><span>shell</span><button data-copy type="button">Copy</button></div>
+            <pre><code><span class="prompt">$</span> java -jar tn5250_gateway-1.0-SNAPSHOT.jar
+
+--------------------------------------------------------------------------------------------      
+
+<span class="request-response">REQUEST:</span>
+{
+  "type": "setup"
+}
+
+<span class="request-response">RESPONSE:</span>
+{
+  "proxy_port": 2323,
+  "proxy_tls": false,
+  "as400_host": "pub400.com",
+  "as400_port": 992,
+  "as400_tls": true,
+  "max_verification_timeout_minutes": 5,
+  "sign_in_screen": [
+    { "value": "Your user name:", "row": 5, "col": 1, "name": null },
+    { "value": "Password (max. 128):", "row": 6, "col": 1, "name": null },
+    { "value": null, "row": 5, "col": 25, "name": "username" }
+  ],
+  "screens_dir": "/tmp/screens", <span style="color: gray;">&lt;- optional</span>
+  "access_log_file": "/tmp/logs/mylog.ndjson" <span style="color: gray;">&lt;- optional</span>
+}
+
+<img src="pub400.com_0.png">
+
+--------------------------------------------------------------------------------------------      
+
+<span class="request-response">REQUEST:</span>
+{
+  "connection_id": "7494af8a-6f8d-4bbc-a719-51482f25aec9",
+  "type": "connect",
+  "tn5250_ip": "127.0.0.1"
+}
+
+<span class="request-response">RESPONSE:</span>
+{
+  "connection_id": "7494af8a-6f8d-4bbc-a719-51482f25aec9",
+  "type": "connect",
+  "allow": true
+}
+
+<img src="pub400.com_1.png">
+
+--------------------------------------------------------------------------------------------      
+
+<span class="request-response">REQUEST:</span>
+{
+  "connection_id": "7494af8a-6f8d-4bbc-a719-51482f25aec9",
+  "session_id": "3d44e9ed-4d0a-4f2e-88b7-2f0155a9db48",
+  "type": "sign_in",
+  "tn5250_ip": "127.0.0.1",
+  "fields": {
+    "username": "JOHN"
+  }
+}
+
+<span class="request-response">RESPONSE:</span>
+{
+  "connection_id": "7494af8a-6f8d-4bbc-a719-51482f25aec9",
+  "session_id": "3d44e9ed-4d0a-4f2e-88b7-2f0155a9db48",
+  "type": "sign_in",
+  "allow": true,
+  "max_session_timeout_minutes": 30, <span style="color: gray;">&lt;- optional</span>
+  "max_idle_timeout_minutes": 15 <span style="color: gray;">&lt;- optional</span>
+}
+
+<img src="pub400.com_2.png">
+</div>
+        </div>
+
+        <br>
+        <div class="step-block">
+          <h3>Run the gateway managed by the custom integration program <a href="demo.py" target="_blank" title="Click to download" style="border-bottom-style: solid;">demo.py</a></h3>
+          <div class="code-card">
+            <div class="code-top"><span>shell</span><button data-copy type="button">Copy</button></div>
+            <pre><code><span class="prompt">$</span> rm -f /tmp/loop_pipe &amp;&amp; mkfifo /tmp/loop_pipe
+<span class="prompt">$</span> java -jar tn5250_gateway-1.0-SNAPSHOT.jar &lt; /tmp/loop_pipe | demo.py &gt; /tmp/loop_pipe
+<span class="prompt">$</span> rm /tmp/loop_pipe</code></pre>
+          </div>
+        </div>
+
       </div>
     </section>
+
   </main>
 
   <footer>
     <div class="container footer-grid">
-      <a class="brand" href="#top"><span class="brand-mark">TN</span><span>TN5250 Gateway</span></a>
+      <a class="brand" href="#top"><span>TN5250 Gateway</span></a>
       <p>Released under the <a href="https://github.com/io-org/tn5250_gateway/blob/main/LICENSE">MIT License</a>.</p>
       <a href="https://github.com/io-org/tn5250_gateway" rel="noreferrer">GitHub <span aria-hidden="true">↗</span></a>
     </div>
   </footer>
-  <script src="script.js"></script>
+
+  <script>
+    document.querySelectorAll('[data-copy]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const code = button.closest('.code-card').querySelector('code').innerText;
+        const cleaned = code.replace(/^\$\s?/gm, '');
+        navigator.clipboard.writeText(cleaned).then(() => {
+          const original = button.textContent;
+          button.textContent = 'Copied';
+          setTimeout(() => { button.textContent = original; }, 1600);
+        });
+      });
+    });
+  </script>
 </body>
+
 </html>

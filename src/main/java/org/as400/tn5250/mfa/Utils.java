@@ -7,7 +7,11 @@ import java.io.StringReader;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+import tools.jackson.databind.ObjectMapper;
+
 public class Utils {
+        public static final ObjectMapper OM = new ObjectMapper();
+
     private static final DateTimeFormatter FILE_TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
     public static String getTimestampForFileName() {

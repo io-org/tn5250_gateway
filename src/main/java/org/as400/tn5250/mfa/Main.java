@@ -27,7 +27,7 @@ public class Main {
 	 * <Implementation-Vendor>TN5250-Gateway project</Implementation-Vendor>
 	 * </manifestEntries>
 	 */
-	public static final String REPO_URL = "https://github.com/io-org/TN5250-Gateway.git";
+	public static final String CLONE_URL = "https://github.com/io-org/tn5250_gateway.git";
 	/**
 	 * Constant <code>MANIFEST_IMPLEMENTATION_TITLE</code> See pom.xml
 	 */
@@ -119,53 +119,20 @@ public class Main {
 		}
 		System.err.println(createHeader());
 
-		if (args.length < 1) {
-			printHelp();
-			System.exit(0);
-			return;
-		}
-		boolean debug = true;
-
-		String cmd = args[0];
-		switch (cmd) {
-			case "help", "h", "?", "--help", "-h" -> {
-				printHelp();
-				System.exit(0);
-				return;
-			}
-			case "--debug", "-d" -> {
-				debug = true;
-			}
-		}
+		boolean debug = false;
 		String noColorEnvVar = System.getenv("NO_COLOR");
-
 		boolean noColor = noColorEnvVar != null;
 
-		if (debug) {
-			String classPath = System.getProperty("java.class.path");
-			String javaVersion = System.getProperty("java.version");
-			String osName = System.getProperty("os.name");
-			String osVersion = System.getProperty("os.version");
-			String osArch = System.getProperty("os.arch");
-			String commandLine = info.commandLine().orElse("Command line not present");
-
-			System.err.println("Java class path: %s".formatted(classPath));
-			System.err.println("Java version:    %s".formatted(javaVersion));
-			System.err.println("OS name:         %s".formatted(osName));
-			System.err.println("OS version:      %s".formatted(osVersion));
-			System.err.println("OS architecture: %s".formatted(osArch));
-			System.err.println("Command line:    %s".formatted(commandLine));
-
+		if (args.length > 0) {
 			for (int i = 0; i < args.length; i++) {
-				System.err.println("args[%d] = \"%s\"".formatted(i, args[i]));
-			}
-		}
-
-		if (args.length > 1) {
-			for (int i = 1; i < args.length; i++) {
 				switch (args[i]) {
+					case "--debug", "-d" -> debug = true;
 					case "--no-color", "-nc" -> noColor = true;
-
+					case "help", "h", "?", "--help", "-h" -> {
+						printHelp();
+						System.exit(0);
+						return;
+					}
 					default -> {
 						System.err.println("Unknown flag or option!");
 						System.exit(-1);
@@ -174,8 +141,27 @@ public class Main {
 				}
 			}
 		}
+
+		if (debug) {
+			String commandLine = info.commandLine().orElse("Command line not present");
+
+			System.err.println("Build:           %s".formatted(MANIFEST_BUILD_TIME));
+			System.err.println("Commit:          %s".formatted(GIT_COMMIT_ID_FULL));
+			System.err.println("Clone URL:       %s".formatted(CLONE_URL));;
+			System.err.println("Java class path: %s".formatted(ISystemProperties.CLASSPATH));
+			System.err.println("Java version:    %s".formatted(ISystemProperties.JAVA_VERSION));
+			System.err.println("OS name:         %s".formatted(ISystemProperties.OS_NAME));
+			System.err.println("OS version:      %s".formatted(ISystemProperties.OS_VERSION));
+			System.err.println("OS architecture: %s".formatted(ISystemProperties.OS_ARCH));
+			System.err.println("Version:         %s".formatted(MANIFEST_IMPLEMENTATION_VERSION));
+			System.err.println("Command line:    %s".formatted(commandLine));
+			for (int i = 0; i < args.length; i++) {
+				System.err.println("args[%d] = \"%s\"".formatted(i, args[i]));
+			}
+		}
+
 		Server server = new Server();
-		server.serve();
+		server.serve(debug);
 	}
 
 	/**
@@ -183,7 +169,7 @@ public class Main {
 	 * @return
 	 */
 	public static String createHeader() {
-		return "\n" + MANIFEST_IMPLEMENTATION_TITLE + "\nVersion: " + MANIFEST_IMPLEMENTATION_VERSION + "\nJVM version: " + ISystemProperties.JAVA_VERSION + "\nBuild: " + MANIFEST_BUILD_TIME + "\nCommit: " + GIT_COMMIT_ID_FULL + "\nClone: " + REPO_URL + "\n";
+		return "\n" + MANIFEST_IMPLEMENTATION_TITLE + "\n";
 	}
 
 	private static void printHelp() {
@@ -192,35 +178,30 @@ public class Main {
 		sb.append("                                                                                \n");
 		sb.append("Usage:                                                                          \n");
 		sb.append("                                                                                \n");
-		sb.append("tn5250-gateway <command> [flags...] [options...]                                            \n");
+		sb.append("tn5250-gateway [command] [flags...]                                             \n");
 		sb.append("                                                                                \n");
 		sb.append("                                                                                \n");
 		sb.append("Commands:                                                                       \n");
 		sb.append("                                                                                \n");
-		sb.append(" help              Print help message.                                          \n");
-		sb.append(" wait              Start listening for requests on stdin.                       \n");
+		sb.append(" help           Print help message.                                             \n");
 		sb.append("                                                                                \n");
 		sb.append("                                                                                \n");
 		sb.append("Flags:                                                                          \n");
 		sb.append("                                                                                \n");
-		sb.append(" --no-color,   -nc Disable ANSI colors (same effect as NO_COLOR env var).       \n");
-		sb.append("                                                                                \n");
-		sb.append("                                                                                \n");
-		sb.append("Options:                                                                        \n");
-		sb.append("                                                                                \n");
-		sb.append(" --verbose,     -v Verbosity level: 0 - zero (default), 1 - min, 2 - max.       \n");
+		sb.append(" --debug,    -d Enabel debug mode (prints messages to stderr).                  \n");
+		sb.append(" --no-color, -n Disable ANSI colors (same effect as NO_COLOR env var).          \n");
 		sb.append("                                                                                \n");
 		sb.append("                                                                                \n");
 		sb.append("Optional environment variables:                                                 \n");
 		sb.append("                                                                                \n");
-		sb.append(" NO_COLOR          Disable ANSI colors (same effect as --no-color, -n flags).   \n");
+		sb.append(" NO_COLOR       Disable ANSI colors (same effect as --no-color, -n flags).      \n");
 		sb.append("                                                                                \n");
 		sb.append("                                                                                \n");
 		sb.append("Exit Codes:                                                                     \n");
 		sb.append("                                                                                \n");
-		sb.append("   0               The command was successfully executed without errors.        \n");
-		sb.append("   1               An error occurred during the execution of the command.       \n");
-		sb.append(" 255               An unknown or invalid command, option or flag was provided.  \n");
+		sb.append("   0            The command was successfully executed without errors.           \n");
+		sb.append("   1            An error occurred during the execution of the command.          \n");
+		sb.append(" 255            An unknown or invalid command, option or flag was provided.     \n");
 		sb.append("                                                                                \n");
 		// sb.append("01234567890123456789012345678901234567890123456789012345678901234567890123456789\n");
 		System.err.println(sb);

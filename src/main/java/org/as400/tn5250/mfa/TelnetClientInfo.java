@@ -4,6 +4,8 @@ import java.util.Set;
 
 /** Extracts client identity values from Telnet subnegotiation without changing forwarded bytes. */
 public final class TelnetClientInfo {
+	private static final int DEFAULT_EBCDIC_CCSID = 37;
+	
 	private static final Set<String> TN5250_TERMINAL_TYPES = Set.of(
 			"IBM-5555-C01", "IBM-5555-B01", "IBM-3477-FC", "IBM-3477-FG",
 			"IBM-3180-2", "IBM-3179-2", "IBM-3196-A1", "IBM-5292-2",
@@ -183,8 +185,8 @@ public final class TelnetClientInfo {
 	public synchronized String getUsername() { return username; }
 
 	/** Returns the client-reported code page/CCSID, or null if it has not been negotiated. */
-	public synchronized int getCcsid() { return ccsid; }
-
+	public synchronized int getCcsid() { return ccsid == -1 ? DEFAULT_EBCDIC_CCSID : ccsid; }
+	
 	private static String ascii(byte[] data, int start, int end) {
 		StringBuilder value = new StringBuilder();
 		for (int i = start; i < end; i++) { int ch = data[i] & 0xff; if (ch == IAC && i + 1 < end && (data[i + 1] & 0xff) == IAC) i++; value.append((char) ch); }

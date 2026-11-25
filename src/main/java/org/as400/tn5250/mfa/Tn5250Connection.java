@@ -8,19 +8,25 @@ import java.net.SocketTimeoutException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import javax.net.SocketFactory;
+import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 
 /*
 TODO:
+
 - we need add fire some events: 
 	IP ask to connect (done). String eventType = "ask_for_connect"
 	username asc to sign-in (done). String eventType = "ask_for_sign_in"
@@ -36,14 +42,23 @@ public class Tn5250Connection implements Runnable {
 
 	private final String connectionId;
 	public final Socket tn5250;
+	private final boolean tn5250Tls;
+	private final String tn5250Ip;
 	private final String as400Host;
 	private final int as400Port;
 	private final boolean as400Tls;
 	private Map<String, int[]> fieldsToExtract;
 	private String screens_dir;
+
+	private String username;
+
 	private final BlockingQueue<Map<String, Object>> outbox;
 	public final BlockingQueue<Map<String, Object>> inboxConnect = new LinkedBlockingQueue<>();
 	public final BlockingQueue<Map<String, Object>> inboxSignIn = new LinkedBlockingQueue<>();
+
+	public static final String EVENT_SIGNIN = "signin";
+	public static final String EVENT_SIGNOUT = "signout";
+	public static final String EVENT_REJECT = "reject";
 
 	public static final String REZERVED_FIELD_TERMINAL_MODEL = "terminal_model";
 	public static final String REZERVED_FIELD_CCSID = "ccsid";
@@ -76,9 +91,11 @@ public class Tn5250Connection implements Runnable {
 
 	private static final int DEFAULT_MAX_SESSION_TIMEOUT_MINUTES = UNLIMITED_TIMEOUT_MINUTES; // Unlimited
 	private static final int DEFAULT_MAX_IDLE_TIMEOUT_MINUTES = UNLIMITED_TIMEOUT_MINUTES; // Unlimited
+	private static final int DEFAULT_MAX_VERIFICATION_TIMEOUT_MINUTES = UNLIMITED_TIMEOUT_MINUTES; // Unlimited
 
 	private volatile int max_session_timeout_minutes = DEFAULT_MAX_SESSION_TIMEOUT_MINUTES;
 	private volatile int max_idle_timeout_minutes = DEFAULT_MAX_IDLE_TIMEOUT_MINUTES;
+	private volatile int max_verification_timeout_minutes = DEFAULT_MAX_VERIFICATION_TIMEOUT_MINUTES;
 
 	private boolean signInScreenDetected;
 	private boolean firstSignInScreenDetected;
@@ -96,13 +113,20 @@ public class Tn5250Connection implements Runnable {
 	 */
 	private static final int TIMEOUT_CHECK_INTERVAL_MS = 1000;
 	private static final long TN5250_NEGOTIATION_TIMEOUT_MS = 600000;
+
 	private volatile long sessionStartedAtNanos;
+	private volatile long verificationStartedAtNanos;
 	private volatile long lastActivityAtNanos;
+
 	private String sessionId;
 	private final TelnetClientInfo telnetClientInfo = new TelnetClientInfo();
+	private final AsyncLogger accessLogger;
 
 	private boolean connectVerified;
 	private boolean signinVerified;
+	private boolean firstSigninVerified;
+
+	private boolean debug;
 
 	public Tn5250Connection( //
 			String connectionId,
@@ -111,8 +135,11 @@ public class Tn5250Connection implements Runnable {
 			int as400Port, //
 			boolean as400Tls, //
 			List<Map<String, Object>> signInScreenLayout,
+			int max_verification_timeout_minutes,
 			BlockingQueue<Map<String, Object>> outbox,
-			String screens_dir) {
+			String screens_dir,
+			AsyncLogger accessLogger,
+			boolean debug) {
 		this.connectionId = connectionId;
 		this.tn5250 = tn5250;
 		this.as400Host = as400Host;
@@ -120,8 +147,13 @@ public class Tn5250Connection implements Runnable {
 		this.as400Tls = as400Tls;
 		this.outbox = outbox;
 		this.signInScreenLayout = signInScreenLayout;
+		this.max_verification_timeout_minutes = max_verification_timeout_minutes;
 		this.fieldsToExtract = new LinkedHashMap<>();
 		this.screens_dir = screens_dir;
+		this.accessLogger = accessLogger;
+		this.tn5250Tls = tn5250 instanceof SSLSocket;
+		this.tn5250Ip = tn5250.getInetAddress().getHostAddress();
+		this.debug = debug;
 		for (Map<String, Object> m : signInScreenLayout) {
 			String fieldName = (String) m.get(KEY_FLD_NAME);
 			if (fieldName != null) {
@@ -130,16 +162,38 @@ public class Tn5250Connection implements Runnable {
 				fieldsToExtract.put(fieldName, new int[] { row, col });
 			}
 		}
+
 	}
 
-	private Map<String, Object> verify(Map<String, Object> request, BlockingQueue<Map<String, Object>> inbox) {
+	private volatile boolean verificationInProgress;
+
+	private Map<String, Object> verify(
+			Map<String, Object> request,
+			BlockingQueue<Map<String, Object>> inbox,
+			Socket tn5250,
+			Socket as400) throws IOException {
+
+		verificationInProgress = true;
+		verificationStartedAtNanos = System.nanoTime();
 		try {
 			outbox.put(request);
-			return inbox.take();
+
+			long timeoutMillis = max_verification_timeout_minutes == UNLIMITED_TIMEOUT_MINUTES
+					? Long.MAX_VALUE
+					: (long) max_verification_timeout_minutes * 60_000L;
+			Map<String, Object> response = inbox.poll(timeoutMillis,
+					java.util.concurrent.TimeUnit.MILLISECONDS);
+
+			if (response == null) {
+				checkTimeouts(tn5250, as400);
+				throw new IOException("Maximum verification duration exceeded");
+			}
+			return response;
 		} catch (InterruptedException e) {
-			e.printStackTrace();
 			Thread.currentThread().interrupt();
-			return Collections.EMPTY_MAP;
+			return Collections.emptyMap();
+		} finally {
+			verificationInProgress = false;
 		}
 	}
 
@@ -147,6 +201,8 @@ public class Tn5250Connection implements Runnable {
 	public void run() {
 		sessionStartedAtNanos = System.nanoTime();
 		lastActivityAtNanos = sessionStartedAtNanos;
+		verificationStartedAtNanos = sessionStartedAtNanos;
+
 		SocketFactory socketFactory = as400Tls ? SSLSocketFactory.getDefault() : SocketFactory.getDefault();
 
 		try (Socket as400 = socketFactory.createSocket(as400Host, as400Port)) {
@@ -214,8 +270,24 @@ public class Tn5250Connection implements Runnable {
 
 				if (signInScreenDetected) {
 					Map<String /* field name */, String /* field value */> fieldNameValueMap = extractAllInputFieldsOnEnter(buffer, count, ccsid, ebcdicCharset, fieldsToExtract);
-					String username = fieldNameValueMap.get(REZERVED_FIELD_USERNAME);
+					username = fieldNameValueMap.get(REZERVED_FIELD_USERNAME);
+					System.err.println("=========>>>" + fieldNameValueMap);
 					if (username == null) {
+						String event = EVENT_REJECT;
+						String message = "Connection aborted: Bad username.";
+						writeToAccessLog(
+								connectionId,
+								sessionId,
+								tn5250Ip,
+								tn5250Tls,
+								event,
+								username,
+								message,
+								max_session_timeout_minutes, // Session length limit in minutes
+								max_idle_timeout_minutes, // Idle timeout Limit in minutes
+								as400Host,
+								as400Port,
+								as400Tls);
 						try {
 							as400.close();
 							tn5250.close();
@@ -226,7 +298,6 @@ public class Tn5250Connection implements Runnable {
 						return;
 					}
 					if (!signinVerified) {
-						String tn5250Ip = tn5250.getInetAddress().getHostAddress();
 						// send verify request
 						// wait while answer true or false or timeout come
 						Map<String, Object> request = new LinkedHashMap<>();
@@ -237,18 +308,41 @@ public class Tn5250Connection implements Runnable {
 						request.put(KEY_REQUEST_FIELDS, fieldNameValueMap);
 
 						System.err.println("Verify sign-in...");
-						Map<String, Object> response = verify(request, inboxSignIn);
+						Map<String, Object> response = verify(request, inboxSignIn, tn5250, as400);
 						String connectionIdFromResponse = (String) response.get(KEY_REQUEST_CONNECTION_ID);
 						String sessionIdFromResponse = (String) response.get(KEY_REQUEST_SESSION_ID);
 						Boolean allow = (Boolean) response.get(KEY_RESPONSE_ALLOW);
-						if ( //
-						(connectionIdFromResponse == null || !connectionIdFromResponse.equals(connectionId)) || //
-								(sessionIdFromResponse == null || !sessionIdFromResponse.equals(sessionId)) || //
-								(allow == null || !allow)) {
+						boolean policyAllowed = connectionIdFromResponse != null
+								&& Objects.equals(connectionIdFromResponse, connectionId)
+								&& sessionIdFromResponse != null
+								&& Objects.equals(sessionIdFromResponse, sessionId)
+								&& allow != null
+								&& allow;
+						String event;
+						String message = null;
+						if (policyAllowed) {
+							event = EVENT_SIGNIN;
+						} else {
+							event = EVENT_REJECT;
+							message = (String) response.get(KEY_RESPONSE_MESSAGE);
+						}
+						writeToAccessLog(
+								connectionId,
+								sessionId,
+								tn5250Ip,
+								tn5250Tls,
+								event,
+								username,
+								message,
+								max_session_timeout_minutes, // Session length limit in minutes
+								max_idle_timeout_minutes, // Idle timeout Limit in minutes
+								as400Host,
+								as400Port,
+								as400Tls);
+						if (!policyAllowed) {
 							try {
 								tn5250.close();
 								as400.close();
-								String message = (String) response.get(KEY_RESPONSE_MESSAGE);
 								System.err.println(String.format("Session aborted: Client failed verification against active security policies.\nMessage: %s", message));
 							} catch (IOException e) {
 								e.printStackTrace();
@@ -257,6 +351,12 @@ public class Tn5250Connection implements Runnable {
 							return;
 						}
 						signinVerified = true;
+						sessionStartedAtNanos = System.nanoTime();
+						lastActivityAtNanos = sessionStartedAtNanos;
+
+						if (!firstSigninVerified) {
+							firstSigninVerified = true;
+						}
 						Integer obj_max_session_timeout_minutes = (Integer) response.get(MAX_SESSION_TIMEOUT_MINUTES);
 						if (obj_max_session_timeout_minutes != null) {
 							max_session_timeout_minutes = Math.min(max_session_timeout_minutes, obj_max_session_timeout_minutes.intValue());
@@ -282,7 +382,6 @@ public class Tn5250Connection implements Runnable {
 	}
 
 	private void forwardHostToClient(Socket as400, Socket tn5250) {
-		String tn5250Ip = tn5250.getInetAddress().getHostAddress();
 		int num = 0;
 		Tn5250ScreenDecoder screenDecoder = null;
 		Charset screenDecoderCharset = null;
@@ -305,16 +404,32 @@ public class Tn5250Connection implements Runnable {
 
 				telnetClientInfo.inspect(buffer, count);
 				int ccsid = telnetClientInfo.getCcsid();
+				
 				String devname = telnetClientInfo.getDevname();
 				String terminalModel = telnetClientInfo.getTerminalModel();
-				String username = telnetClientInfo.getUsername();
-
-				System.err.println(String.format("Device:         %s", devname));
-				System.err.println(String.format("Terminal Model: %s", terminalModel));
-				System.err.println(String.format("CCSID:          %s", ccsid));
-				System.err.println(String.format("Username:       %s", username));
-
+				String usernameFromInfo = telnetClientInfo.getUsername();
+				if (debug) {
+					System.err.println(String.format("TN5250 INFO: Device:         %s", devname));
+					System.err.println(String.format("TN5250 INFO: Terminal Model: %s", terminalModel));
+					System.err.println(String.format("TN5250 INFO: CCSID:          %s", ccsid));
+					System.err.println(String.format("TN5250 INFO: Username:       %s", usernameFromInfo));
+				}
 				if (num > (as400Tls ? 4 : 3) && !firstSignInScreenDetected) {
+					String event = EVENT_REJECT;
+					String message = "Connection aborted: Bad client.";
+					writeToAccessLog(
+							connectionId,
+							sessionId,
+							tn5250Ip,
+							tn5250Tls,
+							event,
+							username,
+							message,
+							max_session_timeout_minutes, // Session length limit in minutes
+							max_idle_timeout_minutes, // Idle timeout Limit in minutes
+							as400Host,
+							as400Port,
+							as400Tls);
 					try {
 						as400.close();
 						tn5250.close();
@@ -325,10 +440,10 @@ public class Tn5250Connection implements Runnable {
 					return;
 				}
 				num++;
-				if (ccsid != -1) {
+				//if (ccsid != -1) {
 					String javaCharsetName = com.ibm.as400.access.NLS.ccsidToEncoding(ccsid); // Returns "Cp037" or "IBM037"
 					ebcdicCharset = Charset.forName(javaCharsetName);
-				}
+				//}
 
 				if (!connectVerified) {
 					Map<String, Object> request = new LinkedHashMap<>();
@@ -336,18 +451,34 @@ public class Tn5250Connection implements Runnable {
 					request.put(KEY_REQUEST_REQUEST_TYPE, VAL_REQUEST_TYPE_CONNECT);
 					request.put(KEY_REQUEST_TN5250_IP, tn5250Ip);
 					System.err.println("Verify connect...");
-					Map<String, Object> response = verify(request, inboxConnect);
+					Map<String, Object> response = verify(request, inboxConnect, tn5250, as400);
 					String connectionIdFromResponse = (String) response.get(KEY_REQUEST_CONNECTION_ID);
 					String sessionIdFromResponse = (String) response.get(KEY_REQUEST_SESSION_ID);
 					Boolean allow = (Boolean) response.get(KEY_RESPONSE_ALLOW);
-					if ( //
-					(connectionIdFromResponse == null || !connectionIdFromResponse.equals(connectionId)) || //
-							(sessionIdFromResponse != null) || //
-							(allow == null || !allow)) {
+					boolean policyAllowed = connectionIdFromResponse != null
+							&& Objects.equals(connectionIdFromResponse, connectionId)
+							&& sessionIdFromResponse == null
+							&& allow != null
+							&& allow;
+					if (!policyAllowed) {
+						String event = EVENT_REJECT;
+						String message = (String) response.get(KEY_RESPONSE_MESSAGE);
+						writeToAccessLog(
+								connectionId,
+								sessionId,
+								tn5250Ip,
+								tn5250Tls,
+								event,
+								usernameFromInfo,
+								message,
+								max_session_timeout_minutes, // Session length limit in minutes
+								max_idle_timeout_minutes, // Idle timeout Limit in minutes
+								as400Host,
+								as400Port,
+								as400Tls);
 						try {
 							as400.close();
 							tn5250.close();
-							String message = (String) response.get(KEY_RESPONSE_MESSAGE);
 							System.err.println(String.format("Connection aborted: Client failed verification against active security policies.\nMessage: %s", message));
 						} catch (IOException e) {
 							e.printStackTrace();
@@ -374,11 +505,26 @@ public class Tn5250Connection implements Runnable {
 
 				List<String> screens = screenDecoder.accept(buffer, count);
 				for (String screen : screens) {
-					if (screen.trim().isEmpty()) {
-						continue;
-					}
 					signInScreenDetected = isMatchSignInScreen(screen, signInScreenLayout);
 					if (signInScreenDetected) {
+						if (firstSigninVerified) {
+							String event = EVENT_SIGNOUT;
+							String message = "User signed out";
+							writeToAccessLog(
+									connectionId,
+									sessionId,
+									tn5250Ip,
+									tn5250Tls,
+									event,
+									username,
+									message,
+									max_session_timeout_minutes, // Session length limit in minutes
+									max_idle_timeout_minutes, // Idle timeout Limit in minutes
+									as400Host,
+									as400Port,
+									as400Tls);
+						}
+
 						sessionId = UUID.randomUUID().toString();
 						signinVerified = false;
 					}
@@ -386,13 +532,17 @@ public class Tn5250Connection implements Runnable {
 						firstSignInScreenDetected = true;
 					}
 
-					System.err.println(screen);
 					if (screens_dir != null) {
-						String timestamp = Utils.getTimestampForFileName();
-						Path scr = Path.of(screens_dir, "connection-" + connectionId, "session-" + sessionId, "screen-" + timestamp + ".txt");
-						Path parent = scr.getParent();
-						Files.createDirectories(parent);
-						Files.writeString(scr, screen);
+						if (!screen.trim().isEmpty()) {
+							if (debug) {
+								System.err.println(screen);
+							}
+							String timestamp = Utils.getTimestampForFileName();
+							Path scr = Path.of(screens_dir, "connection-" + connectionId, "session-" + sessionId, "screen-" + timestamp + ".txt");
+							Path parent = scr.getParent();
+							Files.createDirectories(parent);
+							Files.writeString(scr, screen);
+						}
 					}
 				}
 
@@ -413,11 +563,37 @@ public class Tn5250Connection implements Runnable {
 
 	private void checkTimeouts(Socket tn5250, Socket as400) throws IOException {
 		long now = System.nanoTime();
-		if (elapsedMinutes(sessionStartedAtNanos, now) >= max_session_timeout_minutes) {
-			closeForTimeout(tn5250, as400, "Maximum session duration exceeded");
+		boolean session_timeout_exceeded = elapsedMinutes(sessionStartedAtNanos, now) >= max_session_timeout_minutes;
+		boolean idle_timeout_exceeded = elapsedMinutes(lastActivityAtNanos, now) >= max_idle_timeout_minutes;
+		boolean verification_timeout_exceeded = verificationInProgress
+				&& elapsedMinutes(verificationStartedAtNanos, now) >= max_verification_timeout_minutes;
+		String message = null;
+		if (session_timeout_exceeded) {
+			message = "Maximum session duration exceeded";
+		} else if (idle_timeout_exceeded) {
+			message = "Maximum idle duration exceeded";
+		} else if (verification_timeout_exceeded) {
+			message = "Maximum verification duration exceeded";
 		}
-		if (elapsedMinutes(lastActivityAtNanos, now) >= max_idle_timeout_minutes) {
-			closeForTimeout(tn5250, as400, "Maximum idle duration exceeded");
+		if (session_timeout_exceeded || //
+				idle_timeout_exceeded || //
+				verification_timeout_exceeded //
+		) {
+			String event = EVENT_REJECT;
+			writeToAccessLog(
+					connectionId,
+					sessionId,
+					tn5250Ip,
+					tn5250Tls,
+					event,
+					username,
+					message,
+					max_session_timeout_minutes,
+					max_idle_timeout_minutes,
+					as400Host,
+					as400Port,
+					as400Tls);
+			closeForTimeout(tn5250, as400, message);
 		}
 	}
 
@@ -440,9 +616,16 @@ public class Tn5250Connection implements Runnable {
 	 * field blocks sequentially, and decodes every text data fragment out of
 	 * EBCDIC.
 	 */
+
+	/*
+	[0, 17, 18, -1, -3, 0, 55, 55, 45, 70, 67, -1, -16,
+	[0, 17, 18, -96, 0, 0, 4, 0, 0, 3, 5, 26, -15, 17, 5, 25, -63, -1, -17, 68, 69, 80, 65, 71, 69, 1, 51, 55, 3, 67, 72, 65, 82, 83, 69, 84, 1, 54, 57, 55, 3, 68, 69, 86, 78, 65, 77, 69, 1, 77, 89, 68, 69, 86, -1, -16, -1, -6, 24, 0, 73, 66, 77, 45, 51, 52, 55, 55, 45, 70, 67, -1, -16,	
+	
+	*/
 	private Map<String /* field name */, String /* field value */> extractAllInputFieldsOnEnter(byte[] buffer, int len, int ccsid, Charset ebcdicCharset, Map<String, int[]> fieldsToExtract) {
-		if (ccsid == -1)
-			return Collections.EMPTY_MAP;
+		System.err.println(Arrays.toString(buffer));
+		// if (ccsid == -1)
+		// 	return Collections.EMPTY_MAP;
 		Map<String /* field name */, String /* field value */> fieldNameValueMap = new LinkedHashMap<>();
 		// String javaCharsetName = com.ibm.as400.access.NLS.ccsidToEncoding(ccsid); //
 		// Returns "Cp037"
@@ -535,6 +718,8 @@ public class Tn5250Connection implements Runnable {
 			int[] rc = entry.getValue();
 			int r = rc[0];
 			int c = rc[1];
+			System.err.println("rrrrrrrrrrrrrrrrrrrrrrrr="+r);
+			System.err.println("cccccccccccccccccccccccc="+c);
 			if (r == row && c == col) {
 				return fieldName;
 			}
@@ -562,6 +747,44 @@ public class Tn5250Connection implements Runnable {
 			}
 		}
 		return true;
-
 	}
+
+	private void writeToAccessLog(
+			String connectionId,
+			String sessionId,
+			String tn5250Ip,
+			boolean tn5250Tls,
+			String event,
+			String username,
+			String message,
+			int max_session_timeout_minutes, // Session length limit in minutes
+			int max_idle_timeout_minutes, // Idle timeout Limit in minutes
+			String as400Host,
+			int as400Port,
+			boolean as400Tls) {
+		// UTC, E.g. 2026-11-21T07:03:15.123Z
+		String timestamp = Instant.now().truncatedTo(ChronoUnit.MILLIS).toString();
+		Map<String, Object> logRecord = new LinkedHashMap<>();
+		logRecord.put("timestamp", timestamp);
+		logRecord.put("connection_id", connectionId);
+		logRecord.put("session_id", sessionId);
+		logRecord.put("tls", tn5250Tls);
+		logRecord.put("event", event);
+		logRecord.put("username", username);
+		if (EVENT_SIGNIN.equals(event)) {
+			if (max_session_timeout_minutes < UNLIMITED_TIMEOUT_MINUTES)
+				logRecord.put("max_session_timeout_minutes", max_session_timeout_minutes);
+			if (max_session_timeout_minutes < UNLIMITED_TIMEOUT_MINUTES)
+				logRecord.put("max_idle_timeout_minutes", max_idle_timeout_minutes);
+			logRecord.put("as400_host", as400Host);
+			logRecord.put("as400_port", as400Port);
+			logRecord.put("as400_tls", as400Tls);
+		} else if (EVENT_REJECT.equals(event) || EVENT_SIGNOUT.equals(event)) {
+			if (message != null)
+				logRecord.put("message", message);
+		}
+		String json = Utils.OM.writeValueAsString(logRecord);
+		accessLogger.log(json);
+	}
+
 }

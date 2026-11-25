@@ -18,7 +18,6 @@ import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLServerSocketFactory;
 
 import tools.jackson.core.type.TypeReference;
-import tools.jackson.databind.ObjectMapper;
 
 public class Server {
     // private static final String CONFIG_JSON = """
@@ -40,7 +39,6 @@ public class Server {
     public static final String VAL_REQUEST_TYPE_SETUP = "setup";
 
     private static final int CLEANER_THREAD_SLEEP_MILLIS = 1000;
-    private static final ObjectMapper JSON = new ObjectMapper();
     private static final TypeReference<Map<String, Object>> JSON_MAP = new TypeReference<>() {
     };
     private static final BufferedReader stdin = new BufferedReader(new InputStreamReader(System.in));
@@ -48,41 +46,66 @@ public class Server {
     // Maps "connectionId:sessionId" -> that session's dedicated inbox queue
     private static final Map<String, Tn5250Connection> connectionsMap = new ConcurrentHashMap<>();
 
-    //private static Map<String, Object> configMap;
+    // private static Map<String, Object> configMap;
     private final BlockingQueue<Map<String, Object>> outbox = new LinkedBlockingQueue<>();
 
-    public void serve() throws IOException {
-		Map<String, Object> request = new LinkedHashMap<>();
-		request.put(Tn5250Connection.KEY_REQUEST_REQUEST_TYPE, VAL_REQUEST_TYPE_SETUP);
-		System.err.println("Request setup data...");
+    public void serve(boolean debug) throws IOException {
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put(Tn5250Connection.KEY_REQUEST_REQUEST_TYPE, VAL_REQUEST_TYPE_SETUP);
+        System.err.println("Request setup data...");
 
-        System.out.println(JSON.writeValueAsString(request));
+        System.out.println(Utils.OM.writeValueAsString(request));
         System.out.flush();
 
         String json = Utils.readJsonObject(stdin);
+        System.err.println(json);
         if (json == null) {
             throw new IOException("Verifier input closed");
         }
 
-        Map<String, Object> configMap = JSON.readValue(json, JSON_MAP);
-        System.err.println(configMap);
+        Map<String, Object> configMap = Utils.OM.readValue(json, JSON_MAP);
 
-        String screens_dir = (String) configMap.get("screens_dir");
+        String screens_dir = (String) configMap.get("screens_dir"); // optional
+        String access_log_file = (String) configMap.get("access_log_file"); // optional
         int proxy_port = (int) configMap.get("proxy_port");
         boolean proxy_tls = (boolean) configMap.get("proxy_tls");
         String as400_host = (String) configMap.get("as400_host");
         int as400_port = (int) configMap.get("as400_port");
         boolean as400_tls = (boolean) configMap.get("as400_tls");
+        int max_verification_timeout_minutes = (int) configMap.get("max_verification_timeout_minutes");
+        
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> sign_in_screen = (List<Map<String, Object>>) configMap.get("sign_in_screen");
-        serve(proxy_port, proxy_tls, as400_host, as400_port, as400_tls, sign_in_screen, screens_dir);
+        AsyncLogger assessLogger = new AsyncLogger(access_log_file, Integer.MAX_VALUE);
+        serve(
+                proxy_port,
+                proxy_tls,
+                as400_host,
+                as400_port,
+                as400_tls,
+                sign_in_screen,
+                max_verification_timeout_minutes,
+                screens_dir,
+                assessLogger,
+                debug);
     }
 
-    public void serve(int proxy_port, boolean proxy_tls, String as400_host, int as400_port, boolean as400_tls, List<Map<String, Object>> sign_in_screen, String screens_dir) {
-        System.err.println("UserChecker proxy started");
-        System.err.println("Listening port: " + proxy_port);
-        System.err.println("Target: " + as400_host + ":" + as400_port);
-
+    public void serve(
+            int proxy_port,
+            boolean proxy_tls,
+            String as400_host,
+            int as400_port,
+            boolean as400_tls,
+            List<Map<String, Object>> sign_in_screen,
+            int max_verification_timeout_minutes,
+            String screens_dir,
+            AsyncLogger accessLogger,
+            boolean debug) {
+        if (debug) {
+            System.err.println("Proxy status:   " + "started");
+            System.err.println("Listening port: " + proxy_port);
+            System.err.println("AS/400:         " + as400_host + ":" + as400_port);
+        }
         startVerifierIoThreads();
 
         ServerSocketFactory serverSocketFactory = proxy_tls
@@ -97,7 +120,18 @@ public class Server {
                 String connectionId = UUID.randomUUID().toString();
                 // Pass GLOBAL_OUTBOX directly; sessions register/unregister their own inboxes
                 // via helper methods
-                Tn5250Connection connectionHandler = new Tn5250Connection(connectionId, client, as400_host, as400_port, as400_tls, sign_in_screen, outbox, screens_dir);
+                Tn5250Connection connectionHandler = new Tn5250Connection(
+                        connectionId,
+                        client,
+                        as400_host,
+                        as400_port,
+                        as400_tls,
+                        sign_in_screen,
+                        max_verification_timeout_minutes,
+                        outbox,
+                        screens_dir,
+                        accessLogger,
+                        debug);
                 connectionsMap.put(connectionId, connectionHandler);
 
                 Thread connectionThread = new Thread(connectionHandler::run, "TN5250-Connection");
@@ -133,7 +167,7 @@ public class Server {
             try {
                 while (!Thread.currentThread().isInterrupted()) {
                     Map<String, Object> request = outbox.take();
-                    System.out.println(JSON.writeValueAsString(request));
+                    System.out.println(Utils.OM.writeValueAsString(request));
                     System.out.flush();
                 }
             } catch (InterruptedException e) {
@@ -153,7 +187,7 @@ public class Server {
                         throw new IOException("Verifier input closed");
                     }
 
-                    Map<String, Object> response = JSON.readValue(json, JSON_MAP);
+                    Map<String, Object> response = Utils.OM.readValue(json, JSON_MAP);
                     System.err.println(response);
 
                     Object connnectionId = response.get(Tn5250Connection.KEY_REQUEST_CONNECTION_ID);

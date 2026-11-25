@@ -1,0 +1,72 @@
+Write a simple, standard Python program using only built-in libraries to handle asynchronous JSON request/response I/O over stdin and stdout.
+
+Requirements
+
+1. Continuous I/O Loop: Continuously read single-line JSON requests from stdin without exiting, and write single-line JSON responses to stdout (flushing after every write).
+2. Async Execution & Delays: Process requests concurrently using asyncio so slow requests do not block incoming ones. Define hardcoded delay constants (in seconds) at the top of the file to simulate processing time, with a distinct delay for each request type (setup, connect, sign_in).
+3. Request Handling:
+	• "type": "setup": Return the hardcoded setup JSON response below.
+	• "type": "connect": Verify if tn5250_ip is in the hardcoded allowed list ["127.0.0.1"]. Return the connect response with "allow": true if found, or "allow": false otherwise.
+	• "type": "sign_in": Verify if fields.username is in the hardcoded allowed list ["BOB", "ALICE", "MARY"]. Return the sign_in response with "allow": true if found, or "allow": false otherwise.
+Use the request and response schemas below as your reference.
+
+--------------------------------------------------------------------------------------------
+
+REQUEST:
+{
+  "type": "setup"
+}
+
+RESPONSE:
+{
+  "proxy_port": 2323,
+  "proxy_tls": false,
+  "as400_host": "pub400.com",
+  "as400_port": 992,
+  "as400_tls": true,
+  "max_verification_timeout_minutes": 5,
+  "sign_in_screen": [
+    { "value": "Your user name:", "row": 5, "col": 1, "name": null },
+    { "value": "Password (max. 128):", "row": 6, "col": 1, "name": null },
+    { "value": null, "row": 5, "col": 25, "name": "username" }
+  ],
+  "screens_dir": "/tmp/screens",
+  "access_log_file": "/tmp/logs/mylog.ndjson"
+}
+
+--------------------------------------------------------------------------------------------
+
+REQUEST:
+{
+  "connection_id": "7494af8a-6f8d-4bbc-a719-51482f25aec9",
+  "type": "connect",
+  "tn5250_ip": "127.0.0.1"
+}
+
+RESPONSE:
+{
+  "connection_id": "7494af8a-6f8d-4bbc-a719-51482f25aec9",
+  "type": "connect",
+  "allow": true
+}
+
+--------------------------------------------------------------------------------------------
+
+REQUEST:
+{
+  "connection_id": "7494af8a-6f8d-4bbc-a719-51482f25aec9",
+  "session_id": "3d44e9ed-4d0a-4f2e-88b7-2f0155a9db48",
+  "type": "sign_in",
+  "tn5250_ip": "127.0.0.1",
+  "fields": {
+    "username": "JOHN"
+  }
+}
+
+RESPONSE:
+{
+  "connection_id": "7494af8a-6f8d-4bbc-a719-51482f25aec9",
+  "session_id": "3d44e9ed-4d0a-4f2e-88b7-2f0155a9db48",
+  "type": "sign_in",
+  "allow": true
+}
