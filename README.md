@@ -1,23 +1,21 @@
 # Generic TN5250 Gateway
 
-[![License: MIT](https://shields.io)](https://opensource.org)
-
 **Modern Authentication • Real-Time Monitoring • Auditing and Compliance**
 
 A generic, lightweight gateway for IBM i that enables TN5250 connections with custom authentication, session management, SIEM, and audit integrations without modifying your native AS/400 configuration.
 
-* **Flexible Authentication:** Enforce custom conditional access workflows, MFA, OIDC, and IdP (Okta, Duo, PingID, Entra ID, Keycloak, and more).
-* **Real-Time Monitoring:** Stream authentication and session events directly to your SIEM.
-* **Auditing and Compliance:** Record session screenshots directly to your own storage to meet strict regulatory standards.
+* Enforce custom conditional access workflows, MFA, OIDC, and IdP (Okta, Duo, PingID, Entra ID, Keycloak, and more).
+* Stream authentication and session events directly to your SIEM.
+* Record session screenshots directly to your own storage to meet strict regulatory standards.
 
 ---
 
 ## Features
 
-1. **TN5250 Proxy:** Accept TN5250 connections and proxy them seamlessly to IBM i.
-2. **TLS Support:** Enable encrypted connections for both the client-facing gateway and upstream TN5250 sessions.
-3. **Session Lifecycle:** Track connection, sign-in state, and captured screens with your favorite third-party tools.
-4. **Plain JSON I/O:** Exchange messages over `stdin` and `stdout`. Test the gateway without an integration program, and test the integration program without the gateway.
+1. Accept TN5250 connections and proxy them seamlessly to IBM i.
+2. Enable encrypted connections for both the client-facing gateway and upstream TN5250 sessions.
+3. Track connection, sign-in state, and captured screens with your favorite third-party tools.
+4. Exchange messages over `stdin` and `stdout`. Test the gateway without an integration program, and test the integration program without the gateway.
 
 ---
 
@@ -52,7 +50,6 @@ java -jar tn5250_gateway-1.0-SNAPSHOT.jar
 ```
 
 #### Step 1: Initial Setup
-![Setup Screen](docs/pub400.com_0.png)
 
 **REQUEST:**
 ```json
@@ -81,7 +78,7 @@ java -jar tn5250_gateway-1.0-SNAPSHOT.jar
 ```
 > *Note: `screens_dir` and `access_log_file` are optional.*
 
-![Setup Screen](pub400.com_0.png)
+![Setup Screen](docs/pub400.com_0.png)
 
 ---
 
@@ -104,7 +101,7 @@ java -jar tn5250_gateway-1.0-SNAPSHOT.jar
 }
 ```
 
-![Connect Screen](pub400.com_1.png)
+![Setup Screen](docs/pub400.com_1.png)
 
 ---
 
@@ -133,7 +130,7 @@ java -jar tn5250_gateway-1.0-SNAPSHOT.jar
 ```
 > *Note: `max_session_timeout_minutes` and `max_idle_timeout_minutes` are optional.*
 
-![Sign-In Screen](pub400.com_2.png)
+![Setup Screen](docs/pub400.com_2.png)
 
 ---
 
