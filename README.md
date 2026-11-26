@@ -1,6 +1,6 @@
 # Generic TN5250 Gateway
 
-**Modern Authentication • Real-Time Monitoring • Auditing and Compliance**
+**Authentication • Real-Time Monitoring • Auditing • Compliance**
 
 A generic, lightweight gateway for IBM i that enables TN5250 connections with custom authentication, session management, SIEM, and audit integrations without modifying your native AS/400 configuration.
 
@@ -29,13 +29,11 @@ Drop the gateway between existing TN5250 clients and your IBM i host to enforce 
 
 ### 1. Download or Build from Sources
 
-Download
-
+Download:
 <a href="https://github.com/io-org/tn5250_gateway/releases" target="_blank">https://github.com/io-org/tn5250_gateway/releases</a>
 
 
-Build from Sources
-
+Build from Sources:
 ```bash
 git clone https://github.com/io-org/tn5250_gateway.git
 cd tn5250_gateway
