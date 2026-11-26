@@ -137,7 +137,7 @@ java -jar tn5250_gateway.jar
 
 ### 4. Run the Gateway Managed by a Custom Integration Program
 
-To connect the gateway to a custom integration script (such as [`https://raw.githubusercontent.com/io-org/tn5250_gateway/refs/heads/main/docs/demo.py`](demo.py)) using a named pipe:
+To connect the gateway to a custom integration script (such as [`demo.py`](https://raw.githubusercontent.com/io-org/tn5250_gateway/refs/heads/main/docs/demo.py)) using a named pipe:
 
 ```bash
 rm -f /tmp/loop_pipe && mkfifo /tmp/loop_pipe
