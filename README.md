@@ -27,9 +27,12 @@ Drop the gateway between existing TN5250 clients and your IBM i host to enforce 
 
 ## Quickstart
 
-### 1. Download or Build from Sources
+### 1. Download
 
-Clone the repository and build the JAR using Maven:
+<a href="https://github.com/io-org/tn5250_gateway/releases" target="_blank">https://github.com/io-org/tn5250_gateway/releases</a>
+
+
+### 2. Build from Sources
 
 ```bash
 git clone https://github.com/io-org/tn5250_gateway.git
@@ -37,16 +40,14 @@ cd tn5250_gateway
 mvn package
 ```
 
-*(Alternatively, download the latest release directly from the [GitHub repository](https://github.com/io-org/tn5250_gateway).)*
-
 ---
 
-### 2. Start the Gateway Without an Integration Program (Manual Control)
+### 3. Start the Gateway Without an Integration Program (Manual Control)
 
 Run the gateway directly and interact via JSON over `stdin`/`stdout`:
 
 ```bash
-java -jar tn5250_gateway-1.0-SNAPSHOT.jar
+java -jar tn5250_gateway.jar
 ```
 
 #### Step 1: Initial Setup
@@ -134,7 +135,7 @@ java -jar tn5250_gateway-1.0-SNAPSHOT.jar
 
 ---
 
-### 3. Run the Gateway Managed by a Custom Integration Program
+### 4. Run the Gateway Managed by a Custom Integration Program
 
 To connect the gateway to a custom integration script (such as [`demo.py`](demo.py)) using a named pipe:
 
