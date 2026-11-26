@@ -46,6 +46,10 @@ mvn package
 
 ### 2. Start the Gateway Without an Integration Program (Manual Control)
 
+Start tn5250j and setup gateway connection:
+
+![Setup Screen](docs/config.png)
+
 Run the gateway directly and interact via JSON over `stdin`/`stdout`:
 
 ```bash
