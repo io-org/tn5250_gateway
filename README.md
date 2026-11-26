@@ -1,8 +1,8 @@
-# Generic TN5250 Gateway
+# Interceptable TN5250 Gateway
 
 **Authentication • Real-Time Monitoring • Auditing • Compliance**
 
-A generic, lightweight gateway for IBM i that enables TN5250 connections with custom authentication, session management, SIEM, and audit integrations without modifying your native AS/400 configuration.
+A Interceptable, lightweight gateway for IBM i that enables TN5250 connections with custom authentication, session management, SIEM, and audit integrations without modifying your native AS/400 configuration.
 
 * Enforce custom conditional access workflows, MFA, OIDC, and IdP (Okta, Duo, PingID, Entra ID, Keycloak, and more).
 * Stream authentication and session events directly to your SIEM.
@@ -142,7 +142,7 @@ To connect the gateway to a custom integration script (such as [`demo.py`](https
 
 ```bash
 rm -f /tmp/loop_pipe && mkfifo /tmp/loop_pipe
-java -jar tn5250_gateway-1.0-SNAPSHOT.jar < /tmp/loop_pipe | demo.py > /tmp/loop_pipe
+java -jar tn5250_gateway.jar < /tmp/loop_pipe | demo.py > /tmp/loop_pipe
 rm /tmp/loop_pipe
 ```
 
