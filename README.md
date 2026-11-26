@@ -23,6 +23,7 @@ A Interceptable, lightweight gateway for IBM i that enables TN5250 connections w
 
 Drop the gateway between existing TN5250 clients and your IBM i host to enforce external verification logic without modifying legacy AS/400 configuration.
 
+![Setup Screen](docs/arch.png)
 ---
 
 ## Quickstart
