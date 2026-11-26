@@ -29,9 +29,10 @@ Drop the gateway between existing TN5250 clients and your IBM i host to enforce 
 
 ### 1. Download or Build from Sources
 
-Download:
+Download:<br>
 <a href="https://github.com/io-org/tn5250_gateway/releases" target="_blank">https://github.com/io-org/tn5250_gateway/releases</a>
 
+<br>
 
 Build from Sources:
 ```bash
